@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summer Scrapbook Bucket List</title>
-    <!-- Handwritten Font -->
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Shadows+Into+Light&display=swap" rel="stylesheet">
-    <!-- Confetti Library -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root {
@@ -37,7 +35,6 @@
             transform: rotate(-2deg);
         }
 
-        /* Progress Bar */
         .progress-container {
             width: 100%;
             max-width: 600px;
@@ -61,7 +58,6 @@
             transition: width 0.5s ease-in-out;
         }
 
-        /* Input Area */
         .input-area {
             display: flex;
             gap: 10px;
@@ -102,7 +98,6 @@
             transform: scale(0.95);
         }
 
-        /* Scrapbook Grid */
         .grid {
             display: flex;
             flex-wrap: wrap;
@@ -111,7 +106,6 @@
             max-width: 1000px;
         }
 
-        /* Polaroid Cards */
         .polaroid {
             background: var(--polaroid-bg);
             padding: 15px 15px 25px 15px;
@@ -123,7 +117,6 @@
             transition: transform 0.3s;
         }
 
-        /* Tilted effect for scrapbook look */
         .polaroid:nth-child(even) { transform: rotate(3deg); }
         .polaroid:nth-child(odd) { transform: rotate(-2deg); }
         .polaroid:nth-child(3n) { transform: rotate(1deg); }
@@ -199,7 +192,6 @@
             color: #888;
         }
         
-        /* Tape detail */
         .tape {
             position: absolute;
             top: -10px;
@@ -228,100 +220,114 @@
     </div>
 
     <div class="grid" id="scrapbookGrid">
-        <!-- Cards will be generated here -->
-    </div>
+        </div>
 
-    <script>
-        // Your custom Summer Bucket List
-        let bucketList = [
-            { id: 1, text: "Cocktail Tasting Night", completed: false, image: null },
-            { id: 2, text: "Homemade pizza", completed: false, image: null },
-            { id: 3, text: "Pretty sunset!!", completed: false, image: null },
-            { id: 4, text: "Pretty Sunrise!!", completed: false, image: null },
-            { id: 5, text: "Hammock", completed: false, image: null },
-            { id: 6, text: "Putnam Trail", completed: false, image: null },
-            { id: 7, text: "Free live music", completed: false, image: null },
-            { id: 8, text: "Camping", completed: false, image: null },
-            { id: 9, text: "Night swimming", completed: false, image: null },
-            { id: 10, text: "Go to Florida!", completed: false, image: null },
-            { id: 11, text: "Hiking", completed: false, image: null },
-            { id: 12, text: "Farmers market", completed: false, image: null },
-            { id: 13, text: "Suncreast pizza", completed: false, image: null },
-            { id: 14, text: "Float the chip", completed: false, image: null },
-            { id: 15, text: "River day on the Mississippi", completed: false, image: null },
-            { id: 16, text: "Spencer Lake Day", completed: false, image: null },
-            { id: 17, text: "Devil's Punchbowl/Hoffman Hill with Connie", completed: false, image: null },
-            { id: 18, text: "Pond View Lavender Farm", completed: false, image: null },
-            { id: 19, text: "Berry stand/flowers at Galesville", completed: false, image: null },
-            { id: 20, text: "Food Truck", completed: false, image: null },
-            { id: 21, text: "Pick strawberries at Ronnie’s", completed: false, image: null },
-            { id: 22, text: "Movie Theater", completed: false, image: null }
-        ];
+    <script type="module">
+        // Import Firebase SDKs using CDN links for browser compatibility
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+        // Your specific Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBm0q7cX5WSQeK2FvgIbBFrJ5u7LGD6LRM",
+            authDomain: "summer-bucket-list-60e70.firebaseapp.com",
+            projectId: "summer-bucket-list-60e70",
+            storageBucket: "summer-bucket-list-60e70.firebasestorage.app",
+            messagingSenderId: "860997075110",
+            appId: "1:860997075110:web:f47ec8b398b276076ff467",
+            measurementId: "G-LJZC1QVZ65"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Global variables
+        window.bucketList = [];
         const grid = document.getElementById('scrapbookGrid');
         const progressBar = document.getElementById('progressBar');
         const input = document.getElementById('newItemInput');
 
-        function renderList() {
+        // Set up Real-time listener
+        const bucketListRef = collection(db, "bucketList");
+        const q = query(bucketListRef, orderBy("createdAt", "asc"));
+
+        onSnapshot(q, (snapshot) => {
+            window.bucketList = [];
+            snapshot.forEach((doc) => {
+                window.bucketList.push({ id: doc.id, ...doc.data() });
+            });
+            renderList();
+        });
+
+        // Expose render function
+        window.renderList = () => {
             grid.innerHTML = '';
             let completedCount = 0;
 
-            bucketList.forEach(item => {
+            window.bucketList.forEach(item => {
                 if (item.completed) completedCount++;
 
                 const card = document.createElement('div');
                 card.className = 'polaroid';
                 
-                // Construct the HTML for each card
                 card.innerHTML = `
                     <div class="tape"></div>
                     <div class="photo-area">
                         <img id="img-${item.id}" src="${item.image || ''}" style="display: ${item.image ? 'block' : 'none'}">
                         <div class="upload-btn-wrapper" style="display: ${item.image ? 'none' : 'block'}">
                             <span class="upload-text">+ Add Photo</span>
-                            <input type="file" accept="image/*" onchange="handleImageUpload(event, ${item.id})" title="Upload a memory!">
+                            <input type="file" accept="image/*" onchange="handleImageUpload(event, '${item.id}')" title="Upload a memory!">
                         </div>
                     </div>
                     <div class="card-footer">
-                        <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleComplete(${item.id})">
+                        <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleComplete('${item.id}')">
                         <span class="goal-text ${item.completed ? 'completed-text' : ''}">${item.text}</span>
                     </div>
                 `;
                 grid.appendChild(card);
             });
 
-            // Update Progress Bar
-            const progressPercentage = bucketList.length === 0 ? 0 : (completedCount / bucketList.length) * 100;
+            const progressPercentage = window.bucketList.length === 0 ? 0 : (completedCount / window.bucketList.length) * 100;
             progressBar.style.width = `${progressPercentage}%`;
-        }
+        };
 
-        function addItem() {
+        // Expose addItem to global window
+        window.addItem = async () => {
             const text = input.value.trim();
             if (text === '') return;
 
-            const newItem = {
-                id: Date.now(),
+            // Add a document to Firestore
+            await addDoc(collection(db, "bucketList"), {
                 text: text,
                 completed: false,
-                image: null
-            };
+                image: null,
+                createdAt: Date.now() // Used to keep them in order
+            });
 
-            bucketList.push(newItem);
             input.value = '';
-            renderList();
-        }
+        };
 
-        // Allow pressing Enter to add an item
         input.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') addItem();
+            if (e.key === 'Enter') window.addItem();
         });
 
-        function toggleComplete(id) {
-            const item = bucketList.find(i => i.id === id);
-            item.completed = !item.completed;
+        // Expose toggleComplete to global window
+        window.toggleComplete = async (id) => {
+            const item = window.bucketList.find(i => i.id === id);
+            if (!item) return;
+
+            const newCompletedState = !item.completed;
+            const itemRef = doc(db, "bucketList", id);
+
+            // Update Firestore
+            await updateDoc(itemRef, {
+                completed: newCompletedState
+            });
             
-            if (item.completed) {
-                // Fire confetti if checked!
+            if (newCompletedState) {
                 confetti({
                     particleCount: 100,
                     spread: 70,
@@ -329,30 +335,36 @@
                     colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff']
                 });
             }
-            renderList();
-        }
+        };
 
-        function handleImageUpload(event, id) {
+        // Expose image upload to global window
+        window.handleImageUpload = async (event, id) => {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    const item = bucketList.find(i => i.id === id);
-                    item.image = e.target.result; // Saves the image data URL
+                reader.onload = async function(e) {
+                    const base64Image = e.target.result;
+                    const itemRef = doc(db, "bucketList", id);
                     
-                    // If they upload a photo, let's automatically mark it as completed
-                    if (!item.completed) {
-                        toggleComplete(id); 
-                    } else {
-                        renderList(); 
+                    // Update Firestore with the image string and mark complete
+                    await updateDoc(itemRef, {
+                        image: base64Image,
+                        completed: true
+                    });
+
+                    // Fire confetti since we marked it complete
+                    const item = window.bucketList.find(i => i.id === id);
+                    if (item && !item.completed) {
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 }
+                        });
                     }
                 }
                 reader.readAsDataURL(file);
             }
-        }
-
-        // Initial render
-        renderList();
+        };
     </script>
 </body>
 </html>
