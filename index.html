@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summer Scrapbook Bucket List</title>
+    <!-- Handwritten Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Shadows+Into+Light&display=swap" rel="stylesheet">
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f1ea;
+            --polaroid-bg: #ffffff;
+            --accent-color: #ff6b6b;
+            --text-color: #333333;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+            color: var(--text-color);
+            font-family: 'Shadows Into Light', cursive;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-family: 'Permanent Marker', cursive;
+            font-size: 3rem;
+            color: var(--text-color);
+            text-align: center;
+            margin-bottom: 10px;
+            transform: rotate(-2deg);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #ddd;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 25px;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--accent-color),
+                var(--accent-color) 10px,
+                #ff8787 10px,
+                #ff8787 20px
+            );
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+        }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 40px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 20px;
+            font-size: 1.2rem;
+            font-family: 'Shadows Into Light', cursive;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            background: transparent;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-family: 'Permanent Marker', cursive;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* Scrapbook Grid */
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            max-width: 1000px;
+        }
+
+        /* Polaroid Cards */
+        .polaroid {
+            background: var(--polaroid-bg);
+            padding: 15px 15px 25px 15px;
+            box-shadow: 3px 5px 15px rgba(0,0,0,0.2);
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        /* Tilted effect for scrapbook look */
+        .polaroid:nth-child(even) { transform: rotate(3deg); }
+        .polaroid:nth-child(odd) { transform: rotate(-2deg); }
+        .polaroid:nth-child(3n) { transform: rotate(1deg); }
+        
+        .polaroid:hover {
+            z-index: 10;
+            transform: scale(1.05) rotate(0deg);
+        }
+
+        .photo-area {
+            width: 100%;
+            height: 220px;
+            background-color: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+
+        .photo-area img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .upload-btn-wrapper {
+            position: absolute;
+            text-align: center;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .upload-text {
+            font-family: 'Permanent Marker', cursive;
+            color: #888;
+            font-size: 1.2rem;
+            pointer-events: none;
+        }
+
+        .card-footer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox {
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        .goal-text {
+            font-size: 1.5rem;
+            line-height: 1.2;
+            flex-grow: 1;
+        }
+
+        .completed-text {
+            text-decoration: line-through;
+            color: #888;
+        }
+        
+        /* Tape detail */
+        .tape {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-2deg);
+            width: 80px;
+            height: 25px;
+            background-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            backdrop-filter: blur(2px);
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>☀️ My Summer Bucket List ☀️</h1>
+    
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="newItemInput" placeholder="Write a new summer goal here...">
+        <button onclick="addItem()">Add to Book</button>
+    </div>
+
+    <div class="grid" id="scrapbookGrid">
+        <!-- Cards will be generated here -->
+    </div>
+
+    <script>
+        // Your custom Summer Bucket List
+        let bucketList = [
+            { id: 1, text: "Cocktail Tasting Night", completed: false, image: null },
+            { id: 2, text: "Homemade pizza", completed: false, image: null },
+            { id: 3, text: "Pretty sunset!!", completed: false, image: null },
+            { id: 4, text: "Pretty Sunrise!!", completed: false, image: null },
+            { id: 5, text: "Hammock", completed: false, image: null },
+            { id: 6, text: "Putnam Trail", completed: false, image: null },
+            { id: 7, text: "Free live music", completed: false, image: null },
+            { id: 8, text: "Camping", completed: false, image: null },
+            { id: 9, text: "Night swimming", completed: false, image: null },
+            { id: 10, text: "Go to Florida!", completed: false, image: null },
+            { id: 11, text: "Hiking", completed: false, image: null },
+            { id: 12, text: "Farmers market", completed: false, image: null },
+            { id: 13, text: "Suncreast pizza", completed: false, image: null },
+            { id: 14, text: "Float the chip", completed: false, image: null },
+            { id: 15, text: "River day on the Mississippi", completed: false, image: null },
+            { id: 16, text: "Spencer Lake Day", completed: false, image: null },
+            { id: 17, text: "Devil's Punchbowl/Hoffman Hill with Connie", completed: false, image: null },
+            { id: 18, text: "Pond View Lavender Farm", completed: false, image: null },
+            { id: 19, text: "Berry stand/flowers at Galesville", completed: false, image: null },
+            { id: 20, text: "Food Truck", completed: false, image: null },
+            { id: 21, text: "Pick strawberries at Ronnie’s", completed: false, image: null },
+            { id: 22, text: "Movie Theater", completed: false, image: null }
+        ];
+
+        const grid = document.getElementById('scrapbookGrid');
+        const progressBar = document.getElementById('progressBar');
+        const input = document.getElementById('newItemInput');
+
+        function renderList() {
+            grid.innerHTML = '';
+            let completedCount = 0;
+
+            bucketList.forEach(item => {
+                if (item.completed) completedCount++;
+
+                const card = document.createElement('div');
+                card.className = 'polaroid';
+                
+                // Construct the HTML for each card
+                card.innerHTML = `
+                    <div class="tape"></div>
+                    <div class="photo-area">
+                        <img id="img-${item.id}" src="${item.image || ''}" style="display: ${item.image ? 'block' : 'none'}">
+                        <div class="upload-btn-wrapper" style="display: ${item.image ? 'none' : 'block'}">
+                            <span class="upload-text">+ Add Photo</span>
+                            <input type="file" accept="image/*" onchange="handleImageUpload(event, ${item.id})" title="Upload a memory!">
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleComplete(${item.id})">
+                        <span class="goal-text ${item.completed ? 'completed-text' : ''}">${item.text}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Update Progress Bar
+            const progressPercentage = bucketList.length === 0 ? 0 : (completedCount / bucketList.length) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+        }
+
+        function addItem() {
+            const text = input.value.trim();
+            if (text === '') return;
+
+            const newItem = {
+                id: Date.now(),
+                text: text,
+                completed: false,
+                image: null
+            };
+
+            bucketList.push(newItem);
+            input.value = '';
+            renderList();
+        }
+
+        // Allow pressing Enter to add an item
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addItem();
+        });
+
+        function toggleComplete(id) {
+            const item = bucketList.find(i => i.id === id);
+            item.completed = !item.completed;
+            
+            if (item.completed) {
+                // Fire confetti if checked!
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff']
+                });
+            }
+            renderList();
+        }
+
+        function handleImageUpload(event, id) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const item = bucketList.find(i => i.id === id);
+                    item.image = e.target.result; // Saves the image data URL
+                    
+                    // If they upload a photo, let's automatically mark it as completed
+                    if (!item.completed) {
+                        toggleComplete(id); 
+                    } else {
+                        renderList(); 
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Initial render
+        renderList();
+    </script>
+</body>
+</html>
