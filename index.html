@@ -264,19 +264,7 @@
             const progressBar = document.getElementById('progressBar');
             const input = document.getElementById('newItemInput');
 
-            const bucketListRef = collection(db, "bucketList");
-            const q = query(bucketListRef, orderBy("createdAt", "asc"));
-
-            onSnapshot(q, (snapshot) => {
-                window.bucketList = [];
-                snapshot.forEach((doc) => {
-                    window.bucketList.push({ id: doc.id, ...doc.data() });
-                });
-                window.renderList();
-            }, (error) => {
-                console.error("Error connecting to database:", error);
-            });
-
+            // 1. DEFINE FUNCTIONS FIRST to prevent race conditions
             window.renderList = () => {
                 grid.innerHTML = '';
                 let completedCount = 0;
@@ -348,4 +336,114 @@
                             particleCount: 100,
                             spread: 70,
                             origin: { y: 0.6 },
-                            colors: ['#ff6b6b', '#ffd93d', '#6bcb77
+                            colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff']
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error updating document: ", error);
+                    alert("Could not update item!");
+                    window.renderList();
+                }
+            };
+
+            window.deleteItem = async (id) => {
+                const isConfirmed = confirm("Are you sure you want to delete this item?");
+                if (isConfirmed) {
+                    try {
+                        const itemRef = doc(db, "bucketList", id);
+                        await deleteDoc(itemRef);
+                    } catch (error) {
+                        console.error("Error deleting document: ", error);
+                        alert("Could not delete item!");
+                    }
+                }
+            };
+
+            window.handleImageUpload = async (event, id) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = async function() {
+                        const canvas = document.createElement('canvas');
+                        
+                        // Limit dimensions to 600px to ensure it fits in Firestore
+                        const MAX_WIDTH = 600;
+                        const MAX_HEIGHT = 600;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        let quality = 0.7;
+                        let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                        // If the string is still too large, lower quality further
+                        while (compressedDataUrl.length > 800000 && quality > 0.1) {
+                            quality -= 0.1;
+                            compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                        }
+
+                        const itemRef = doc(db, "bucketList", id);
+                        
+                        try {
+                            await updateDoc(itemRef, {
+                                image: compressedDataUrl,
+                                completed: true
+                            });
+
+                            const item = window.bucketList.find(i => i.id === id);
+                            if (item && !item.completed) {
+                                confetti({
+                                    particleCount: 100,
+                                    spread: 70,
+                                    origin: { y: 0.6 }
+                                });
+                            }
+                        } catch (error) {
+                            console.error("Error uploading image: ", error);
+                            alert("Save failed! The image might still be too large or there is a database issue.");
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // 2. TURN ON DATABASE LISTENER AFTER FUNCTIONS ARE DEFINED
+            const bucketListRef = collection(db, "bucketList");
+            const q = query(bucketListRef, orderBy("createdAt", "asc"));
+
+            onSnapshot(q, (snapshot) => {
+                window.bucketList = [];
+                snapshot.forEach((doc) => {
+                    window.bucketList.push({ id: doc.id, ...doc.data() });
+                });
+                window.renderList();
+            }, (error) => {
+                console.error("Error connecting to database:", error);
+            });
+
+        } catch (error) {
+            console.error("Critical Firebase Setup Error: ", error);
+        }
+    </script>
+</body>
+</html>
