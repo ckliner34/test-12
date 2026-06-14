@@ -206,7 +206,6 @@
             z-index: 2;
         }
 
-        /* Trash Bin Button Styling */
         .delete-btn {
             background: none;
             border: none;
@@ -243,10 +242,8 @@
         </div>
 
     <script type="module">
-        // Import Firestore AND Storage SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBm0q7cX5WSQeK2FvgIbBFrJ5u7LGD6LRM",
@@ -259,10 +256,8 @@
         };
 
         try {
-            // Initialize Firebase Services
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
-            const storage = getStorage(app); // Initialize Storage
 
             window.bucketList = [];
             const grid = document.getElementById('scrapbookGrid');
@@ -353,81 +348,4 @@
                             particleCount: 100,
                             spread: 70,
                             origin: { y: 0.6 },
-                            colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff']
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error updating document: ", error);
-                    alert("Could not update item!");
-                    window.renderList();
-                }
-            };
-
-            window.deleteItem = async (id) => {
-                const isConfirmed = confirm("Are you sure you want to delete this item?");
-                if (isConfirmed) {
-                    try {
-                        const itemRef = doc(db, "bucketList", id);
-                        await deleteDoc(itemRef);
-                    } catch (error) {
-                        console.error("Error deleting document: ", error);
-                        alert("Could not delete item!");
-                    }
-                }
-            };
-
-            // NEW STORAGE UPLOAD FUNCTION
-            window.handleImageUpload = async (event, id) => {
-                const file = event.target.files[0];
-                if (file) {
-                    // Temporarily show a loading message in the text while uploading
-                    const item = window.bucketList.find(i => i.id === id);
-                    const oldText = item.text;
-                    item.text = "Uploading image... ⏳";
-                    window.renderList();
-
-                    const reader = new FileReader();
-                    reader.onload = async function(e) {
-                        const base64String = e.target.result;
-                        
-                        // 1. Create a reference in Firebase Storage (give it a unique name)
-                        const imageRef = ref(storage, `bucketListImages/${id}_${Date.now()}`);
-                        
-                        try {
-                            // 2. Upload the file string to Firebase Storage
-                            await uploadString(imageRef, base64String, 'data_url');
-                            
-                            // 3. Get the public download URL back from Storage
-                            const downloadURL = await getDownloadURL(imageRef);
-                            
-                            // 4. Save that URL to Firestore
-                            const itemRef = doc(db, "bucketList", id);
-                            await updateDoc(itemRef, {
-                                image: downloadURL,
-                                completed: true,
-                                text: oldText // restore the original text
-                            });
-
-                            if (!item.completed) {
-                                confetti({
-                                    particleCount: 100,
-                                    spread: 70,
-                                    origin: { y: 0.6 }
-                                });
-                            }
-                        } catch (error) {
-                            console.error("Error uploading to storage: ", error);
-                            alert("Upload failed! Make sure you updated your Firebase Storage Rules.");
-                            item.text = oldText; // restore text on failure
-                            window.renderList();
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-        } catch (error) {
-            console.error("Critical Firebase Setup Error: ", error);
-        }
-    </script>
-</body>
-</html>
+                            colors: ['#ff6b6b', '#ffd93d', '#6bcb77
