@@ -243,7 +243,6 @@
         </div>
 
     <script type="module">
-        // Import Firebase SDKs using CDN links for browser compatibility
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -296,7 +295,6 @@
                     const card = document.createElement('div');
                     card.className = 'polaroid';
                     
-                    // Added window. prefix to functions in HTML string to ensure they map correctly
                     card.innerHTML = `
                         <div class="tape"></div>
                         <div class="photo-area">
@@ -319,20 +317,17 @@
                 progressBar.style.width = `${progressPercentage}%`;
             };
 
-            // Expose addItem to global window
             window.addItem = async () => {
                 const text = input.value.trim();
                 if (text === '') return;
 
                 try {
-                    // Add a document to Firestore
                     await addDoc(collection(db, "bucketList"), {
                         text: text,
                         completed: false,
                         image: null,
-                        createdAt: Date.now() // Used to keep them in order
+                        createdAt: Date.now()
                     });
-
                     input.value = '';
                 } catch (error) {
                     console.error("Error adding document: ", error);
@@ -344,7 +339,6 @@
                 if (e.key === 'Enter') window.addItem();
             });
 
-            // Expose toggleComplete to global window
             window.toggleComplete = async (id) => {
                 const item = window.bucketList.find(i => i.id === id);
                 if (!item) return;
@@ -353,7 +347,6 @@
                 const itemRef = doc(db, "bucketList", id);
 
                 try {
-                    // Update Firestore
                     await updateDoc(itemRef, {
                         completed: newCompletedState
                     });
@@ -369,55 +362,88 @@
                 } catch (error) {
                     console.error("Error updating document: ", error);
                     alert("Could not update item!");
-                    window.renderList(); // Revert the checkbox visually
+                    window.renderList();
                 }
             };
 
-            // Expose deleteItem to global window
             window.deleteItem = async (id) => {
                 const isConfirmed = confirm("Are you sure you want to delete this item?");
-                
                 if (isConfirmed) {
                     try {
                         const itemRef = doc(db, "bucketList", id);
                         await deleteDoc(itemRef);
                     } catch (error) {
                         console.error("Error deleting document: ", error);
-                        alert("Could not delete item! Check the console for more details.");
+                        alert("Could not delete item!");
                     }
                 }
             };
 
-            // Expose image upload to global window
+            // NEW: Image Compression Function
             window.handleImageUpload = async (event, id) => {
                 const file = event.target.files[0];
                 if (file) {
                     const reader = new FileReader();
-                    reader.onload = async function(e) {
-                        const base64Image = e.target.result;
-                        const itemRef = doc(db, "bucketList", id);
-                        
-                        try {
-                            // Update Firestore with the image string and mark complete
-                            await updateDoc(itemRef, {
-                                image: base64Image,
-                                completed: true
-                            });
+                    reader.onload = function(e) {
+                        // Create an image object to get the dimensions
+                        const img = new Image();
+                        img.onload = async function() {
+                            // Create a hidden canvas
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 800; // Shrink to a reasonable size
+                            const MAX_HEIGHT = 800;
+                            let width = img.width;
+                            let height = img.height;
 
-                            // Fire confetti since we marked it complete
-                            const item = window.bucketList.find(i => i.id === id);
-                            if (item && !item.completed) {
-                                confetti({
-                                    particleCount: 100,
-                                    spread: 70,
-                                    origin: { y: 0.6 }
-                                });
+                            // Calculate new dimensions while keeping aspect ratio
+                            if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                    height *= MAX_WIDTH / width;
+                                    width = MAX_WIDTH;
+                                }
+                            } else {
+                                if (height > MAX_HEIGHT) {
+                                    width *= MAX_HEIGHT / height;
+                                    height = MAX_HEIGHT;
+                                }
                             }
-                        } catch (error) {
-                            console.error("Error uploading image: ", error);
-                            alert("Could not save image! The image might be too large.");
-                        }
-                    }
+
+                            // Resize canvas and draw image
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Convert the resized canvas back to a base64 string (JPEG, 70% quality)
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                            const itemRef = doc(db, "bucketList", id);
+                            
+                            try {
+                                // Save the newly compressed, smaller string to Firestore
+                                await updateDoc(itemRef, {
+                                    image: compressedDataUrl,
+                                    completed: true
+                                });
+
+                                // Fire confetti since we marked it complete
+                                const item = window.bucketList.find(i => i.id === id);
+                                if (item && !item.completed) {
+                                    confetti({
+                                        particleCount: 100,
+                                        spread: 70,
+                                        origin: { y: 0.6 }
+                                    });
+                                }
+                            } catch (error) {
+                                console.error("Error uploading compressed image: ", error);
+                                alert("Could not save image! Even after compression, it might be too large.");
+                            }
+                        };
+                        // Trigger the image load
+                        img.src = e.target.result;
+                    };
+                    // Read the original file
                     reader.readAsDataURL(file);
                 }
             };
