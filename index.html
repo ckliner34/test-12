@@ -1,4 +1,4 @@
-\<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -185,6 +185,7 @@
             font-size: 1.5rem;
             line-height: 1.2;
             flex-grow: 1;
+            word-wrap: break-word;
         }
 
         .completed-text {
@@ -214,6 +215,9 @@
             padding: 5px;
             transition: transform 0.2s;
             opacity: 0.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .delete-btn:hover {
@@ -232,14 +236,14 @@
 
     <div class="input-area">
         <input type="text" id="newItemInput" placeholder="Write a new summer goal here...">
-        <button onclick="addItem()">Add to Book</button>
+        <button type="button" onclick="window.addItem()">Add to Book</button>
     </div>
 
     <div class="grid" id="scrapbookGrid">
         </div>
 
     <script type="module">
-        // Import Firebase SDKs using CDN links for browser compatibility (added deleteDoc)
+        // Import Firebase SDKs using CDN links for browser compatibility
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -276,7 +280,7 @@
                 snapshot.forEach((doc) => {
                     window.bucketList.push({ id: doc.id, ...doc.data() });
                 });
-                renderList();
+                window.renderList();
             }, (error) => {
                 console.error("Error connecting to database:", error);
             });
@@ -292,20 +296,20 @@
                     const card = document.createElement('div');
                     card.className = 'polaroid';
                     
-                    // Added delete button to the card footer
+                    // Added window. prefix to functions in HTML string to ensure they map correctly
                     card.innerHTML = `
                         <div class="tape"></div>
                         <div class="photo-area">
                             <img id="img-${item.id}" src="${item.image || ''}" style="display: ${item.image ? 'block' : 'none'}">
                             <div class="upload-btn-wrapper" style="display: ${item.image ? 'none' : 'block'}">
                                 <span class="upload-text">+ Add Photo</span>
-                                <input type="file" accept="image/*" onchange="handleImageUpload(event, '${item.id}')" title="Upload a memory!">
+                                <input type="file" accept="image/*" onchange="window.handleImageUpload(event, '${item.id}')" title="Upload a memory!">
                             </div>
                         </div>
                         <div class="card-footer">
-                            <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleComplete('${item.id}')">
+                            <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="window.toggleComplete('${item.id}')">
                             <span class="goal-text ${item.completed ? 'completed-text' : ''}">${item.text}</span>
-                            <button class="delete-btn" onclick="deleteItem('${item.id}')" title="Delete Item">🗑️</button>
+                            <button class="delete-btn" type="button" onclick="window.deleteItem('${item.id}')" title="Delete Item">🗑️</button>
                         </div>
                     `;
                     grid.appendChild(card);
@@ -364,14 +368,13 @@
                     }
                 } catch (error) {
                     console.error("Error updating document: ", error);
-                    alert("Could not update item! Please check your Firestore rules.");
-                    renderList(); // Revert the checkbox visually
+                    alert("Could not update item!");
+                    window.renderList(); // Revert the checkbox visually
                 }
             };
 
             // Expose deleteItem to global window
             window.deleteItem = async (id) => {
-                // Add a confirmation popup so you don't accidentally delete memories
                 const isConfirmed = confirm("Are you sure you want to delete this item?");
                 
                 if (isConfirmed) {
@@ -380,7 +383,7 @@
                         await deleteDoc(itemRef);
                     } catch (error) {
                         console.error("Error deleting document: ", error);
-                        alert("Could not delete item! Please check your Firestore rules.");
+                        alert("Could not delete item! Check the console for more details.");
                     }
                 }
             };
@@ -412,7 +415,7 @@
                             }
                         } catch (error) {
                             console.error("Error uploading image: ", error);
-                            alert("Could not save image! The image might be too large (Firestore has a 1MB limit for this type of upload), or check your database rules.");
+                            alert("Could not save image! The image might be too large.");
                         }
                     }
                     reader.readAsDataURL(file);
