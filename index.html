@@ -243,11 +243,11 @@
         </div>
 
     <script type="module">
+        // Import Firestore AND Storage SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-        // Your specific Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBm0q7cX5WSQeK2FvgIbBFrJ5u7LGD6LRM",
             authDomain: "summer-bucket-list-60e70.firebaseapp.com",
@@ -259,18 +259,16 @@
         };
 
         try {
-            // Initialize Firebase
+            // Initialize Firebase Services
             const app = initializeApp(firebaseConfig);
-            const analytics = getAnalytics(app);
             const db = getFirestore(app);
+            const storage = getStorage(app); // Initialize Storage
 
-            // Global variables
             window.bucketList = [];
             const grid = document.getElementById('scrapbookGrid');
             const progressBar = document.getElementById('progressBar');
             const input = document.getElementById('newItemInput');
 
-            // Set up Real-time listener
             const bucketListRef = collection(db, "bucketList");
             const q = query(bucketListRef, orderBy("createdAt", "asc"));
 
@@ -284,7 +282,6 @@
                 console.error("Error connecting to database:", error);
             });
 
-            // Expose render function
             window.renderList = () => {
                 grid.innerHTML = '';
                 let completedCount = 0;
@@ -379,71 +376,52 @@
                 }
             };
 
-            // NEW: Image Compression Function
+            // NEW STORAGE UPLOAD FUNCTION
             window.handleImageUpload = async (event, id) => {
                 const file = event.target.files[0];
                 if (file) {
+                    // Temporarily show a loading message in the text while uploading
+                    const item = window.bucketList.find(i => i.id === id);
+                    const oldText = item.text;
+                    item.text = "Uploading image... ⏳";
+                    window.renderList();
+
                     const reader = new FileReader();
-                    reader.onload = function(e) {
-                        // Create an image object to get the dimensions
-                        const img = new Image();
-                        img.onload = async function() {
-                            // Create a hidden canvas
-                            const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 800; // Shrink to a reasonable size
-                            const MAX_HEIGHT = 800;
-                            let width = img.width;
-                            let height = img.height;
-
-                            // Calculate new dimensions while keeping aspect ratio
-                            if (width > height) {
-                                if (width > MAX_WIDTH) {
-                                    height *= MAX_WIDTH / width;
-                                    width = MAX_WIDTH;
-                                }
-                            } else {
-                                if (height > MAX_HEIGHT) {
-                                    width *= MAX_HEIGHT / height;
-                                    height = MAX_HEIGHT;
-                                }
-                            }
-
-                            // Resize canvas and draw image
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-
-                            // Convert the resized canvas back to a base64 string (JPEG, 70% quality)
-                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-                            const itemRef = doc(db, "bucketList", id);
+                    reader.onload = async function(e) {
+                        const base64String = e.target.result;
+                        
+                        // 1. Create a reference in Firebase Storage (give it a unique name)
+                        const imageRef = ref(storage, `bucketListImages/${id}_${Date.now()}`);
+                        
+                        try {
+                            // 2. Upload the file string to Firebase Storage
+                            await uploadString(imageRef, base64String, 'data_url');
                             
-                            try {
-                                // Save the newly compressed, smaller string to Firestore
-                                await updateDoc(itemRef, {
-                                    image: compressedDataUrl,
-                                    completed: true
-                                });
+                            // 3. Get the public download URL back from Storage
+                            const downloadURL = await getDownloadURL(imageRef);
+                            
+                            // 4. Save that URL to Firestore
+                            const itemRef = doc(db, "bucketList", id);
+                            await updateDoc(itemRef, {
+                                image: downloadURL,
+                                completed: true,
+                                text: oldText // restore the original text
+                            });
 
-                                // Fire confetti since we marked it complete
-                                const item = window.bucketList.find(i => i.id === id);
-                                if (item && !item.completed) {
-                                    confetti({
-                                        particleCount: 100,
-                                        spread: 70,
-                                        origin: { y: 0.6 }
-                                    });
-                                }
-                            } catch (error) {
-                                console.error("Error uploading compressed image: ", error);
-                                alert("Could not save image! Even after compression, it might be too large.");
+                            if (!item.completed) {
+                                confetti({
+                                    particleCount: 100,
+                                    spread: 70,
+                                    origin: { y: 0.6 }
+                                });
                             }
-                        };
-                        // Trigger the image load
-                        img.src = e.target.result;
+                        } catch (error) {
+                            console.error("Error uploading to storage: ", error);
+                            alert("Upload failed! Make sure you updated your Firebase Storage Rules.");
+                            item.text = oldText; // restore text on failure
+                            window.renderList();
+                        }
                     };
-                    // Read the original file
                     reader.readAsDataURL(file);
                 }
             };
