@@ -6,6 +6,8 @@
     <title>Summer Scrapbook Bucket List</title>
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Shadows+Into+Light&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    
     <style>
         :root {
             --bg-color: #f4f1ea;
@@ -134,7 +136,7 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            margin-bottom: 15px;
+            margin-bottom: 5px; /* Reduced to make room for date */
             border: 1px solid #ccc;
             position: relative;
         }
@@ -166,6 +168,16 @@
             color: #888;
             font-size: 1.2rem;
             pointer-events: none;
+        }
+
+        /* New Styling for the Photo Date */
+        .photo-date {
+            font-family: 'Shadows Into Light', cursive;
+            color: #888;
+            font-size: 1rem;
+            text-align: right;
+            margin-bottom: 10px;
+            min-height: 1.5rem;
         }
 
         .card-footer {
@@ -264,10 +276,39 @@
             const progressBar = document.getElementById('progressBar');
             const input = document.getElementById('newItemInput');
 
-            // 1. DEFINE FUNCTIONS FIRST
+            // Helper function to extract EXIF Date from a file
+            const getExifDate = (file) => {
+                return new Promise((resolve) => {
+                    EXIF.getData(file, function() {
+                        let exifDate = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+                        if (exifDate) {
+                            // EXIF standard date format is "YYYY:MM:DD HH:MM:SS"
+                            let parts = exifDate.split(" ");
+                            let dateParts = parts[0].split(":");
+                            if (dateParts.length === 3) {
+                                // Convert to a friendly date format
+                                const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                                resolve(d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+                                return;
+                            }
+                        }
+                        // Fallback to the file's last modified date if no EXIF is found
+                        const fallbackDate = new Date(file.lastModified);
+                        resolve(fallbackDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+                    });
+                });
+            };
+
             window.renderList = () => {
                 grid.innerHTML = '';
                 let completedCount = 0;
+
+                // SORTING LOGIC: Completed items jump to the top
+                window.bucketList.sort((a, b) => {
+                    if (a.completed && !b.completed) return -1;
+                    if (!a.completed && b.completed) return 1;
+                    return a.createdAt - b.createdAt; // Otherwise sort by oldest first
+                });
 
                 window.bucketList.forEach(item => {
                     if (item.completed) completedCount++;
@@ -275,6 +316,7 @@
                     const card = document.createElement('div');
                     card.className = 'polaroid';
                     
+                    // Added a div to display the date Taken
                     card.innerHTML = `
                         <div class="tape"></div>
                         <div class="photo-area">
@@ -284,6 +326,7 @@
                                 <input type="file" accept="image/*" onchange="window.handleImageUpload(event, '${item.id}')" title="Upload a memory!">
                             </div>
                         </div>
+                        <div class="photo-date">${item.dateTaken || ''}</div>
                         <div class="card-footer">
                             <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''} onchange="window.toggleComplete('${item.id}')">
                             <span class="goal-text ${item.completed ? 'completed-text' : ''}">${item.text}</span>
@@ -306,6 +349,7 @@
                         text: text,
                         completed: false,
                         image: null,
+                        dateTaken: null, // New field for the date
                         createdAt: Date.now()
                     });
                     input.value = '';
@@ -338,6 +382,8 @@
                             origin: { y: 0.6 },
                             colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff']
                         });
+                        // Automatically scroll to the top of the page when an item jumps up
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }
                 } catch (error) {
                     console.error("Error updating document: ", error);
@@ -359,7 +405,6 @@
                 }
             };
 
-            // MOBILE OPTIMIZED IMAGE UPLOAD
             window.handleImageUpload = async (event, id) => {
                 const file = event.target.files[0];
                 if (!file) return;
@@ -369,9 +414,11 @@
                 item.text = "Uploading... ⏳";
                 window.renderList();
 
+                // Extract the date from the file immediately
+                const capturedDate = await getExifDate(file);
+
                 const img = new Image();
 
-                // Error handler if the phone hands the browser an unsupported file
                 img.onerror = function() {
                     alert("Could not load image. Try taking a new photo.");
                     item.text = oldText;
@@ -379,12 +426,10 @@
                 };
 
                 img.onload = async function() {
-                    // Instantly free up mobile memory
                     URL.revokeObjectURL(img.src);
 
                     const canvas = document.createElement('canvas');
                     
-                    // Shrink to exactly 500px to guarantee it fits in Firebase text limits easily
                     const MAX_WIDTH = 500;
                     const MAX_HEIGHT = 500;
                     let width = img.width;
@@ -407,7 +452,6 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Single-pass compression (0.5 quality) - No while-loops to freeze the phone
                     const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.5);
 
                     const itemRef = doc(db, "bucketList", id);
@@ -416,7 +460,8 @@
                         await updateDoc(itemRef, {
                             image: compressedDataUrl,
                             completed: true,
-                            text: oldText // restore text
+                            text: oldText,
+                            dateTaken: capturedDate // Save the date to Firestore
                         });
 
                         if (!item.completed) {
@@ -425,6 +470,8 @@
                                 spread: 70,
                                 origin: { y: 0.6 }
                             });
+                            // Scroll to top since it was just marked complete
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                     } catch (error) {
                         console.error("Error uploading image: ", error);
@@ -434,11 +481,9 @@
                     }
                 };
 
-                // CRITICAL FIX: Use Object URL instead of FileReader to prevent Mobile Safari crashes
                 img.src = URL.createObjectURL(file);
             };
 
-            // 2. TURN ON DATABASE LISTENER
             const bucketListRef = collection(db, "bucketList");
             const q = query(bucketListRef, orderBy("createdAt", "asc"));
 
